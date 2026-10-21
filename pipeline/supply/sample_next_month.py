@@ -46,6 +46,7 @@ def sample_next_month() -> dict:
     Месяц батча — следующий после max(transaction_time). Времена переносятся
     в этот месяц, результат пишется в supply_batch.parquet.
     Витрину не изменяет. Возвращает путь к файлу и первое число месяца батча.
+    Повтор перезаписывает подготовленный файл, не добавляя строки в витрину.
     """
     TRAINING_DIR.mkdir(parents=True, exist_ok=True)
     conn = get_conn()

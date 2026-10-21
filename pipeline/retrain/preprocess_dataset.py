@@ -17,6 +17,7 @@ def preprocess_dataset(split_info: dict) -> dict:
     уходят внутри run_preproc, колонка target остаётся для обучения.
     Пишет splits/train_proc.parquet и splits/test_proc.parquet.
     Возвращает пути к ним и метаданные месяца, нужные следующим задачам.
+    Повтор перезаписывает обработанные файлы, не меняя исходные данные.
     """
     if FRAUD_SRC not in sys.path:
         sys.path.insert(0, FRAUD_SRC)

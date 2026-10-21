@@ -16,6 +16,7 @@ def time_train_test_split(window_info: dict) -> dict:
     сохраняет сырые части в splits/train_raw.parquet и splits/test_raw.parquet.
     Колонка времени остаётся, потому что препроцессинг сам строит календарные признаки.
     Возвращает пути к частям, месяц батча и подписи месяцев train и test.
+    Повтор перезаписывает train и test, не меняя исходное окно.
     """
     SPLITS_DIR.mkdir(parents=True, exist_ok=True)
     frame = pd.read_parquet(window_info["dataset_path"])

@@ -48,7 +48,28 @@ def add_features(df):
 def run_preproc(input_df):
     # Add features
     output_df = add_features(input_df)
-    logger.info('Added new features. Output shape: %s', output_df.shape)
+
+    trans_time = pd.to_datetime(input_df["transaction_time"])
+    output_df["day_of_week"] = trans_time.dt.dayofweek
+    accurate_hour = trans_time.dt.hour + (trans_time.dt.minute / 60)
+    ang = 2 * np.pi * (accurate_hour / 24) 
+
+    output_df["hour_sin"] = np.sin(ang)
+    output_df["hour_cos"] = np.cos(ang)
+    output_df["is_night"] = (trans_time.dt.hour < 7).astype(int)
+
+    numeric_ls = ["amount", "population_city", "haversine"]
+    for i in numeric_ls:
+        values = pd.to_numeric(output_df[i], errors="raise")
+        if (values < 0).any():
+            raise ValueError(f"{i} содержит отриц значения")
+        output_df[f"{i}_log"] = np.log1p(values)
+
+    categorical_columns = ["merch", "cat_id", "gender", "one_city", "us_state", "jobs"]
+    for column in categorical_columns:
+        output_df[column] = (output_df[column].astype("string").str.strip()
+                             .replace("", pd.NA).fillna("unknown").astype(str))
 
     # Return resulting dataset
+    logger.info('Added new features. Output shape: %s', output_df.shape)
     return output_df

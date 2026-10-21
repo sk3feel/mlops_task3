@@ -29,10 +29,12 @@ def prepare_features(frame: pd.DataFrame) -> tuple[pd.DataFrame, pd.Series]:
 def fit_catboost(preproc_info: dict) -> dict:
     """Обучает CatBoost на train и считает ROC-AUC и F1 на свежем месяце.
 
-    Читает обработанные parquet из preproc_info. Модель учится с ранней
-    остановкой по test-месяцу и сохраняется во временный .cbm в каталоге моделей.
-    В общий latest.txt файл ещё не публикуется.
+    Читает обработанные parquet из preproc_info. Модель обучается только на train,
+    test месяц используется для оценки качества.
+    Модель сохраняется во временный .cbm в каталоге моделей.
+    Указатель активной модели latest.txt не меняется.
     Возвращает версию, путь к черновику, метрики и путь к новому окну.
+    Повтор сохраняет новый временный файл, не меняя активную модель и окно.
     """
     from catboost import CatBoostClassifier
     from sklearn.metrics import f1_score, roc_auc_score
@@ -49,17 +51,23 @@ def fit_catboost(preproc_info: dict) -> dict:
         loss_function="Logloss",
         eval_metric="AUC",
         auto_class_weights="Balanced",
-        early_stopping_rounds=20,
+        # early_stopping_rounds=20,
         random_seed=42,
         allow_writing_files=False,
         verbose=20,
     )
+
+    # model.fit(
+    #     x_train,
+    #     y_train,
+    #     cat_features=CAT_FEATURES,
+    #     eval_set=(x_test, y_test),
+    #     use_best_model=True,
+    # )
     model.fit(
         x_train,
         y_train,
         cat_features=CAT_FEATURES,
-        eval_set=(x_test, y_test),
-        use_best_model=True,
     )
 
     proba = model.predict_proba(x_test)[:, 1]

@@ -13,18 +13,20 @@ logger = logging.getLogger(__name__)
 
 
 def publish_model(train_info: dict) -> str:
-    """Кладёт модель в общий каталог и только потом сдвигает указатель месяца.
+    """Сохраняет кандидата и фиксирует обработанный месяц.
 
-    Переименовывает черновик .cbm в my_catboost_<version>.cbm, пишет метрики
-    и атомарно обновляет latest.txt. Затем заменяет current.parquet новым окном
-    и обновляет training_state. Повтор задачи не сдвигает окно второй раз,
-    если pending-файл уже перенесён.
-    Возвращает id опубликованной версии.
+    Одобренная модель становится активной, остальные сохраняются в папку rejected.
+    Читает результат сравнения и новое окно.
+    Повтор сохраняет ту же версию и устанавливает тот же указатель месяца.
+    Записывает модель и метрики, обновляет current.parquet и training_state; latest.txt меняет только при одобрении.
     """
     version = train_info["version"]
+    approved = train_info["approved"]
     staging_model = Path(train_info["staging_model"])
-    final_model = MODELS_DIR / f"my_catboost_{version}.cbm"
-    metrics_path = MODELS_DIR / f"my_catboost_{version}.metrics.json"
+    destination = MODELS_DIR if approved else MODELS_DIR / "rejected"
+    destination.mkdir(parents=True, exist_ok=True)
+    final_model = destination / f"my_catboost_{version}.cbm"
+    metrics_path = destination / f"my_catboost_{version}.metrics.json"
 
     if staging_model.exists():
         os.replace(staging_model, final_model)
@@ -42,6 +44,10 @@ def publish_model(train_info: dict) -> str:
                 "test_rows": train_info["test_rows"],
                 "roc_auc": train_info["roc_auc"],
                 "f1": train_info["f1"],
+                "approved": approved,
+                "candidate_auc": train_info["candidate_auc"],
+                "current_auc": train_info["current_auc"],
+                "current_version": train_info["current_version"],
             },
             ensure_ascii=False,
             indent=2,
@@ -49,10 +55,13 @@ def publish_model(train_info: dict) -> str:
         encoding="utf-8",
     )
 
-    latest_tmp = MODELS_DIR / f".latest.{version}.txt"
-    latest_tmp.write_text(version + "\n", encoding="utf-8")
-    os.replace(latest_tmp, MODELS_DIR / "latest.txt")
-    logger.info("Опубликована модель %s (%s)", version, final_model)
+    if approved:
+        latest_tmp = MODELS_DIR / f".latest.{version}.txt"
+        latest_tmp.write_text(version + "\n", encoding="utf-8")
+        os.replace(latest_tmp, MODELS_DIR / "latest.txt")
+        logger.info("Опубликована модель %s (%s)", version, final_model)
+    else:
+        logger.info("Модель %s отклонена и сохранена в %s", version, final_model)
 
     pending_window = Path(train_info["dataset_path"])
     if pending_window.exists():
